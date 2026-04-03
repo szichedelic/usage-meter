@@ -1,6 +1,5 @@
 """Scrape Claude Max usage from claude.ai/settings"""
 
-import json
 import re
 
 

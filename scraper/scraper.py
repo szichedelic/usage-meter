@@ -21,8 +21,8 @@ def login(services=None):
     if services is None:
         services = ["claude", "codex"]
 
-    with Camoufox(persistent_context=PROFILE_DIR, headless=False) as browser:
-        page = browser.new_page()
+    with Camoufox(persistent_context=True, user_data_dir=PROFILE_DIR, headless=False) as context:
+        page = context.pages[0] if context.pages else context.new_page()
 
         if "claude" in services:
             page.goto("https://claude.ai/login")
@@ -48,8 +48,8 @@ def scrape():
         print(json.dumps({"error": "No saved profile. Run with --login first."}))
         sys.exit(1)
 
-    with Camoufox(persistent_context=PROFILE_DIR, headless=True) as browser:
-        page = browser.new_page()
+    with Camoufox(persistent_context=True, user_data_dir=PROFILE_DIR, headless=True) as context:
+        page = context.pages[0] if context.pages else context.new_page()
 
         try:
             result["claude"] = scrape_claude(page)

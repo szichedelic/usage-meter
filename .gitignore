@@ -1,0 +1,15 @@
+# Xcode
+UsageMeter/UsageMeter.xcodeproj/
+UsageMeter/build/
+*.xcuserdata
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Superpowers
+.superpowers/

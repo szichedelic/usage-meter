@@ -1,0 +1,36 @@
+name: UsageMeter
+options:
+  bundleIdPrefix: com.usagemeter
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+targets:
+  UsageMeter:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        INFOPLIST_KEY_LSUIElement: true
+        INFOPLIST_KEY_CFBundleDisplayName: UsageMeter
+    info:
+      path: Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleDisplayName: UsageMeter
+        CFBundleName: UsageMeter
+  UsageMeterTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: UsageMeter
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/UsageMeter.app/Contents/MacOS/UsageMeter"
+        BUNDLE_LOADER: "$(TEST_HOST)"

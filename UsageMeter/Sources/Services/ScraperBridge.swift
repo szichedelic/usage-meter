@@ -1,15 +1,18 @@
 import Foundation
 
 enum ScraperBridge {
+    private static let projectDir = "\(NSHomeDirectory())/code/github.com/usage-meter"
+
     private static var scraperPath: String {
         let bundlePath = Bundle.main.bundlePath
         let appDir = (bundlePath as NSString).deletingLastPathComponent
         let candidates = [
             "\(appDir)/scraper/scraper.py",
             "\(appDir)/../scraper/scraper.py",
-            "\(FileManager.default.currentDirectoryPath)/scraper/scraper.py"
+            "\(FileManager.default.currentDirectoryPath)/scraper/scraper.py",
+            "\(projectDir)/scraper/scraper.py"
         ]
-        return candidates.first { FileManager.default.fileExists(atPath: $0) } ?? "scraper/scraper.py"
+        return candidates.first { FileManager.default.fileExists(atPath: $0) } ?? "\(projectDir)/scraper/scraper.py"
     }
 
     private static var pythonPath: String {

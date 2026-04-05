@@ -82,7 +82,7 @@ def _find_label(lines, current_idx):
         "Sonnet": "Sonnet",
     }
 
-    for j in range(max(0, current_idx - 3), current_idx + 1):
+    for j in range(max(0, current_idx - 6), current_idx + 1):
         line = lines[j].strip()
         for pattern, short_label in label_patterns.items():
             if pattern.lower() in line.lower():
@@ -93,7 +93,7 @@ def _find_label(lines, current_idx):
 
 def _find_reset_time(lines, current_idx):
     """Look near current index for reset time."""
-    for j in range(max(0, current_idx - 2), min(len(lines), current_idx + 3)):
+    for j in range(max(0, current_idx - 4), min(len(lines), current_idx + 3)):
         line = lines[j].strip()
         reset_match = re.search(r"[Rr]esets?\s+in\s+(.+?)$", line)
         if reset_match:

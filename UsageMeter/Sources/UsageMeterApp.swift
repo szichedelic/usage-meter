@@ -14,7 +14,7 @@ struct UsageMeterApp: App {
     @StateObject private var store = UsageStore()
 
     var body: some Scene {
-        MenuBarExtra {
+        MenuBarExtra("UM", systemImage: "gauge.with.dots.needle.50percent") {
             DropdownView(
                 store: store,
                 onRefresh: { appDelegate.poller?.poll() },
@@ -27,11 +27,6 @@ struct UsageMeterApp: App {
                     appDelegate.poller = p
                 }
             }
-        } label: {
-            MenuBarIcon(
-                claudeUsage: store.services[0].worstUsage,
-                codexUsage: store.services[1].worstUsage
-            )
         }
         .menuBarExtraStyle(.window)
 

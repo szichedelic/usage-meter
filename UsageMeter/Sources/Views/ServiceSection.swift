@@ -24,6 +24,18 @@ struct ServiceSection: View {
                 ForEach(service.metrics) { metric in
                     MetricRow(metric: metric)
                 }
+                if service.name == "Claude Max" {
+                    let status = PeakHoursService.formattedStatus(at: Date())
+                    HStack {
+                        Text(status.isPeak ? "\u{26A1} Peak Hours" : "Peak Hours")
+                            .font(.system(size: 11))
+                            .foregroundStyle(status.isPeak ? ThemeColors.warmAmber : ThemeColors.mutedGreen)
+                        Spacer()
+                        Text(status.text)
+                            .font(.system(size: 9))
+                            .foregroundStyle(ThemeColors.secondaryText)
+                    }
+                }
             case .unavailable:
                 Text("Not connected")
                     .font(.system(size: 11))

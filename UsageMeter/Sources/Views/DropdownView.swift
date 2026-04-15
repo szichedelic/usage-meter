@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DropdownView: View {
     @ObservedObject var store: UsageStore
+    @Environment(\.openSettings) private var openSettings
     let onRefresh: () -> Void
     let onQuit: () -> Void
 
@@ -33,9 +34,7 @@ struct DropdownView: View {
 
                 Spacer()
 
-                Button(action: {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }) {
+                Button(action: { openSettings() }) {
                     Text("Settings")
                         .font(.system(size: 10))
                         .foregroundStyle(ThemeColors.footerText)
@@ -57,4 +56,5 @@ struct DropdownView: View {
         .frame(width: 280)
         .background(ThemeColors.background)
     }
+
 }

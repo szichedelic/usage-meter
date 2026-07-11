@@ -78,11 +78,12 @@ def _find_label(lines, current_idx):
     label_patterns = {
         "Current session": "Session",
         "All models": "Weekly",
+        "Fable": "Fable",
         "Sonnet only": "Sonnet",
         "Sonnet": "Sonnet",
     }
 
-    for j in range(max(0, current_idx - 6), current_idx + 1):
+    for j in range(current_idx, max(-1, current_idx - 7), -1):
         line = lines[j].strip()
         for pattern, short_label in label_patterns.items():
             if pattern.lower() in line.lower():

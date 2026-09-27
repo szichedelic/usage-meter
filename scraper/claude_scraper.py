@@ -21,7 +21,7 @@ def scrape_claude(page):
 
     # Wait for usage data to load
     try:
-        page.wait_for_selector("text=Plan usage limits", timeout=10000)
+        page.wait_for_selector("text=/Plan usage limits|Your usage/", timeout=10000)
     except Exception:
         return {"status": "auth_expired"}
 
@@ -59,14 +59,13 @@ def _parse_claude_text(text):
         pct_match = re.search(r"(\d+)%\s*used", line)
         if pct_match:
             percent = int(pct_match.group(1))
-            label = _find_label(lines, i)
-            reset_time = _find_reset_time(lines, i)
+            label, label_idx = _find_label(lines, i)
 
             if label:
                 metrics.append({
                     "label": label,
                     "percent_used": percent,
-                    "reset_time": reset_time or ""
+                    "reset_time": _find_reset_time(lines, label_idx, i)
                 })
         i += 1
 
@@ -74,11 +73,12 @@ def _parse_claude_text(text):
 
 
 def _find_label(lines, current_idx):
-    """Look backwards from current index to find a label."""
+    """Look backwards from current index to find a label and its line index."""
     label_patterns = {
         "Current session": "Session",
         "All models": "Weekly",
         "Fable": "Fable",
+        "This week": "Weekly",
         "Sonnet only": "Sonnet",
         "Sonnet": "Sonnet",
     }
@@ -87,19 +87,25 @@ def _find_label(lines, current_idx):
         line = lines[j].strip()
         for pattern, short_label in label_patterns.items():
             if pattern.lower() in line.lower():
-                return short_label
+                return short_label, j
 
-    return None
+    return None, None
 
 
-def _find_reset_time(lines, current_idx):
-    """Look near current index for reset time."""
-    for j in range(max(0, current_idx - 4), min(len(lines), current_idx + 3)):
-        line = lines[j].strip()
-        reset_match = re.search(r"[Rr]esets?\s+in\s+(.+?)$", line)
+def _find_reset_time(lines, label_idx, pct_idx):
+    """Find the reset line belonging to this metric.
+
+    Newer layouts put it between the label and the percentage; older ones
+    put it right after the percentage.
+    """
+    after = []
+    for j in range(pct_idx + 1, min(len(lines), pct_idx + 3)):
+        if "% used" in lines[j] or _find_label(lines, j)[1] == j:
+            break
+        after.append(j)
+
+    for j in list(range(label_idx, pct_idx)) + after:
+        reset_match = re.search(r"\bResets?\s+(.+)$", lines[j].strip())
         if reset_match:
-            return f"Resets in {reset_match.group(1)}"
-        reset_match2 = re.search(r"[Rr]esets?\s+([\w\s\d:]+)", line)
-        if reset_match2:
-            return f"Resets {reset_match2.group(1).strip()}"
+            return f"Resets {reset_match.group(1).strip()}"
     return ""

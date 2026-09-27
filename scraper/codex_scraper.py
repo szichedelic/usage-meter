@@ -1,4 +1,4 @@
-"""Scrape Codex usage from chatgpt.com/codex/settings/usage."""
+"""Scrape Codex usage from chatgpt.com/codex/cloud/settings/usage."""
 
 import re
 
@@ -12,7 +12,7 @@ def scrape_codex(page):
     Returns:
         dict with 'metrics' list or 'status': 'auth_expired'
     """
-    page.goto("https://chatgpt.com/codex/settings/usage", timeout=30000)
+    page.goto("https://chatgpt.com/codex/cloud/settings/usage", timeout=30000)
     page.wait_for_timeout(5000)
 
     # Check if redirected to login

@@ -47,6 +47,12 @@ class UsagePoller {
                 for service in store.services {
                     notificationManager.checkAndNotify(service: service)
                 }
+            } else {
+                store.applyScraperOutput(ScraperOutput(
+                    claude: nil,
+                    codex: nil,
+                    error: "Couldn't refresh usage. Close the login browser and try Refresh."
+                ))
             }
         }
     }

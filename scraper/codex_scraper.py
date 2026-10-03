@@ -2,7 +2,25 @@
 
 import re
 
-from playwright.sync_api import TimeoutError
+from playwright.sync_api import Error, TimeoutError
+
+# The usage page calls this endpoint itself, but when ChatGPT's API is slow the
+# page cancels the request and sits on "Loading usage settings…" for minutes.
+USAGE_API_JS = r"""async () => {
+    try {
+        const session = await fetch("/api/auth/session", {signal: AbortSignal.timeout(15000)})
+            .then(r => r.json());
+        if (!session.accessToken) return {loggedOut: true};
+        const res = await fetch("/backend-api/wham/usage", {
+            headers: {Authorization: "Bearer " + session.accessToken},
+            signal: AbortSignal.timeout(20000),
+        });
+        if (!res.ok) return {error: "HTTP " + res.status};
+        return {usage: await res.json()};
+    } catch (e) {
+        return {error: String(e)};
+    }
+}"""
 
 
 def scrape_codex(page):
@@ -14,6 +32,10 @@ def scrape_codex(page):
     Returns:
         dict with 'metrics' list or a failure 'status'
     """
+    result = _scrape_codex_api(page)
+    if result:
+        return result
+
     try:
         page.goto(
             "https://chatgpt.com/settings/usage?tab=overview",
@@ -44,6 +66,55 @@ def scrape_codex(page):
     metrics = _parse_codex_text(text)
 
     return {"metrics": metrics} if metrics else {"status": "parse_error"}
+
+
+def _scrape_codex_api(page):
+    """Read usage straight from the JSON API, or None to fall back to the page."""
+    try:
+        page.goto("https://chatgpt.com/favicon.ico", timeout=30000)
+        response = page.evaluate(USAGE_API_JS)
+    except Error:
+        return None
+
+    if response.get("loggedOut"):
+        return {"status": "auth_expired"}
+
+    metrics = _parse_usage_json(response.get("usage"))
+    return {"metrics": metrics} if metrics else None
+
+
+def _parse_usage_json(usage):
+    """Convert the usage API's rate limit windows into metrics."""
+    rate_limit = (usage or {}).get("rate_limit") or {}
+    metrics = []
+
+    for key in ("primary_window", "secondary_window"):
+        window = rate_limit.get(key)
+        if not window:
+            continue
+
+        seconds = window.get("limit_window_seconds") or 0
+        timeframe = "Wk" if seconds >= 7 * 86400 else f"{round(seconds / 3600)}h"
+        metrics.append({
+            "label": f"General {timeframe}",
+            "percent_used": round(window.get("used_percent", 0)),
+            "reset_time": _format_reset(window.get("reset_after_seconds")),
+        })
+
+    return metrics
+
+
+def _format_reset(seconds):
+    if seconds is None:
+        return ""
+    days, rest = divmod(int(seconds), 86400)
+    hours, rest = divmod(rest, 3600)
+    minutes = rest // 60
+    if days:
+        return f"Resets in {days}d {hours}h"
+    if hours:
+        return f"Resets in {hours}h {minutes}m"
+    return f"Resets in {minutes}m"
 
 
 def _parse_codex_text(text):

@@ -3,8 +3,15 @@ from unittest.mock import Mock
 
 from playwright.sync_api import Error, TimeoutError
 
-from codex_scraper import _parse_codex_text, scrape_codex
+from codex_scraper import _parse_codex_text, _parse_usage_json, scrape_codex
 
+
+WEEKLY_USAGE = {
+    "rate_limit": {
+        "primary_window": {"used_percent": 16, "limit_window_seconds": 604800, "reset_after_seconds": 476338},
+        "secondary_window": None,
+    },
+}
 
 
 class ScrapeCodexTests(unittest.TestCase):
@@ -12,6 +19,27 @@ class ScrapeCodexTests(unittest.TestCase):
         self.page = Mock()
         self.page.url = "https://chatgpt.com/settings/usage?tab=overview"
         self.page.inner_text.return_value = "Weekly limit\nResets in 6d 21h\n96% left"
+        self.page.evaluate.return_value = {"error": "HTTP 503"}
+
+    def test_reads_usage_from_api_without_rendering_page(self):
+        self.page.evaluate.return_value = {"usage": WEEKLY_USAGE}
+
+        self.assertEqual(
+            scrape_codex(self.page),
+            {"metrics": [{"label": "General Wk", "percent_used": 16, "reset_time": "Resets in 5d 12h"}]},
+        )
+        self.page.wait_for_function.assert_not_called()
+
+    def test_api_without_session_is_auth_expired(self):
+        self.page.evaluate.return_value = {"loggedOut": True}
+
+        self.assertEqual(scrape_codex(self.page), {"status": "auth_expired"})
+
+    def test_falls_back_to_page_when_api_fails(self):
+        self.assertEqual(
+            scrape_codex(self.page),
+            {"metrics": [{"label": "General Wk", "percent_used": 4, "reset_time": "Resets in 6d 21h"}]},
+        )
 
     def test_reads_usage_after_navigation_timeout(self):
         self.page.goto.side_effect = TimeoutError("Page.goto: Timeout 30000ms exceeded")
@@ -49,6 +77,28 @@ class ScrapeCodexTests(unittest.TestCase):
 
         with self.assertRaises(Error):
             scrape_codex(self.page)
+
+
+class ParseUsageJsonTests(unittest.TestCase):
+    def test_reads_both_windows(self):
+        usage = {
+            "rate_limit": {
+                "primary_window": {"used_percent": 42, "limit_window_seconds": 18000, "reset_after_seconds": 7500},
+                "secondary_window": {"used_percent": 7.6, "limit_window_seconds": 604800, "reset_after_seconds": 90},
+            },
+        }
+
+        self.assertEqual(
+            _parse_usage_json(usage),
+            [
+                {"label": "General 5h", "percent_used": 42, "reset_time": "Resets in 2h 5m"},
+                {"label": "General Wk", "percent_used": 8, "reset_time": "Resets in 1m"},
+            ],
+        )
+
+    def test_ignores_missing_rate_limit(self):
+        self.assertEqual(_parse_usage_json({"rate_limit": None}), [])
+        self.assertEqual(_parse_usage_json(None), [])
 
 
 class ParseCodexTextTests(unittest.TestCase):

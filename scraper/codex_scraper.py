@@ -1,6 +1,8 @@
-"""Scrape Codex usage from chatgpt.com/codex/cloud/settings/usage."""
+"""Scrape Codex usage from ChatGPT's usage settings."""
 
 import re
+
+from playwright.sync_api import TimeoutError
 
 
 def scrape_codex(page):
@@ -10,20 +12,33 @@ def scrape_codex(page):
         page: Playwright page with active ChatGPT session
 
     Returns:
-        dict with 'metrics' list or 'status': 'auth_expired'
+        dict with 'metrics' list or a failure 'status'
     """
-    page.goto("https://chatgpt.com/codex/cloud/settings/usage", timeout=30000)
-    page.wait_for_timeout(5000)
+    try:
+        page.goto(
+            "https://chatgpt.com/settings/usage?tab=overview",
+            wait_until="domcontentloaded",
+            timeout=30000,
+        )
+    except TimeoutError:
+        # Navigation can time out while the usage content is already readable.
+        pass
 
     # Check if redirected to login
     if "/auth/login" in page.url or "/login" in page.url:
         return {"status": "auth_expired"}
 
-    # Wait for usage data
+    # Wait for percentages as well as headings so hydration has finished.
     try:
-        page.wait_for_selector("text=usage limit", timeout=10000)
-    except Exception:
-        return {"status": "auth_expired"}
+        page.wait_for_function(
+            r"""() => /(?:5[ -]hour|weekly)(?: usage)? limit\s[\s\S]*?\b\d+%\s*(?:remaining|left)/i
+                .test(document.body?.innerText || "")""",
+            timeout=10000,
+        )
+    except TimeoutError:
+        if "/auth/login" in page.url or "/login" in page.url:
+            return {"status": "auth_expired"}
+        return {"status": "error", "message": "Codex usage didn't load in time. Try Refresh."}
 
     text = page.inner_text("body")
     metrics = _parse_codex_text(text)
@@ -34,7 +49,12 @@ def scrape_codex(page):
 def _parse_codex_text(text):
     """Parse Codex usage text into metrics list.
 
-    Actual page format:
+    Current page format:
+        Weekly limit
+        Resets in 6d 23h
+        99% left
+
+    Legacy page format:
         5 hour usage limit
         100%
         remaining
@@ -49,13 +69,13 @@ def _parse_codex_text(text):
         remaining
     """
     metrics = []
-    lines = text.split("\n")
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
     for i, line in enumerate(lines):
         stripped = line.strip()
 
-        # Match lines ending in "usage limit"
-        if not stripped.lower().endswith("usage limit"):
+        # Both current and legacy metric headings end in "limit".
+        if not stripped.lower().endswith("limit"):
             continue
 
         label_line = stripped
@@ -69,7 +89,7 @@ def _parse_codex_text(text):
         else:
             section = "General"
 
-        if "5 hour" in lower:
+        if re.search(r"\b5[ -]hour\b", lower):
             timeframe = "5h"
         elif "weekly" in lower:
             timeframe = "Wk"
@@ -79,7 +99,9 @@ def _parse_codex_text(text):
         # Look forward for the percentage (next few lines)
         percent_remaining = None
         for j in range(i + 1, min(len(lines), i + 4)):
-            pct_match = re.search(r"^(\d+)%$", lines[j].strip())
+            if lines[j].lower().endswith("limit"):
+                break
+            pct_match = re.search(r"^(\d+)%\s*(?:remaining|left)?$", lines[j].strip(), re.I)
             if pct_match:
                 percent_remaining = int(pct_match.group(1))
                 break
@@ -92,6 +114,8 @@ def _parse_codex_text(text):
         # Look forward for reset time
         reset_time = ""
         for j in range(i + 1, min(len(lines), i + 8)):
+            if lines[j].lower().endswith("limit"):
+                break
             reset_match = re.search(r"^[Rr]esets?\s+(.+)$", lines[j].strip())
             if reset_match:
                 reset_time = f"Resets {reset_match.group(1).strip()}"

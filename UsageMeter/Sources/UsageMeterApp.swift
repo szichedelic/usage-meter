@@ -1,32 +1,29 @@
 import SwiftUI
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
+    let store = UsageStore()
     var poller: UsagePoller?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Poller is started from the App struct after store is available
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        let poller = UsagePoller(store: store)
+        self.poller = poller
+        poller.start()
     }
 }
 
 @main
 struct UsageMeterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var store = UsageStore()
 
     var body: some Scene {
         MenuBarExtra("UM", systemImage: "gauge.with.dots.needle.50percent") {
             DropdownView(
-                store: store,
+                store: appDelegate.store,
                 onRefresh: { appDelegate.poller?.poll() },
                 onQuit: { NSApplication.shared.terminate(nil) }
             )
-            .onAppear {
-                if appDelegate.poller == nil {
-                    let p = UsagePoller(store: store)
-                    p.start()
-                    appDelegate.poller = p
-                }
-            }
         }
         .menuBarExtraStyle(.window)
 

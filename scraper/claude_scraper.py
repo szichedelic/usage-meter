@@ -1,6 +1,18 @@
 """Scrape Claude Max usage from claude.ai/settings"""
 
 import re
+from datetime import datetime, timedelta
+
+from playwright.sync_api import TimeoutError
+
+# The page loads this endpoint itself. Model-scoped limits such as Fable are
+# only in its JSON now; the page text no longer lists them.
+USAGE_API_PATH = re.compile(r"/api/organizations/[^/]+/usage$")
+
+LIMIT_LABELS = {
+    "session": "Session",
+    "weekly_all": "Weekly",
+}
 
 
 def scrape_claude(page):
@@ -12,12 +24,26 @@ def scrape_claude(page):
     Returns:
         dict with 'metrics' list or 'status': 'auth_expired'
     """
-    page.goto("https://claude.ai/settings/usage", timeout=30000)
-    page.wait_for_timeout(3000)
+    usage = None
+    try:
+        with page.expect_response(
+            lambda r: USAGE_API_PATH.search(r.url.split("?")[0]) and r.ok,
+            timeout=15000,
+        ) as response_info:
+            page.goto("https://claude.ai/settings/usage", timeout=30000)
+        usage = response_info.value.json()
+    except (TimeoutError, ValueError):
+        pass
 
     # Check if redirected to login
     if "/login" in page.url:
         return {"status": "auth_expired"}
+
+    metrics = _parse_usage_json(usage)
+    if metrics:
+        return {"metrics": metrics}
+
+    page.wait_for_timeout(3000)
 
     # Wait for usage data to load
     try:
@@ -45,6 +71,40 @@ def scrape_claude(page):
         metrics = _parse_claude_text(text)
 
     return {"metrics": metrics} if metrics else {"status": "parse_error"}
+
+
+def _parse_usage_json(usage):
+    """Convert the usage API's limits list into metrics."""
+    metrics = []
+
+    for limit in (usage or {}).get("limits") or []:
+        label = LIMIT_LABELS.get(limit.get("kind"))
+        if not label:
+            scope = limit.get("scope") or {}
+            label = (scope.get("model") or {}).get("display_name") or scope.get("surface")
+        if not label or limit.get("percent") is None:
+            continue
+
+        metrics.append({
+            "label": label,
+            "percent_used": round(limit["percent"]),
+            "reset_time": _format_reset(limit.get("resets_at")),
+        })
+
+    return metrics
+
+
+def _format_reset(resets_at):
+    """Format an ISO timestamp like the page does: 'Resets Wed 1:00 AM'."""
+    if not resets_at:
+        return ""
+    try:
+        when = datetime.fromisoformat(resets_at)
+    except ValueError:
+        return ""
+    # The API reports times like 07:59:59.56; round to the minute.
+    when = (when + timedelta(seconds=30)).replace(second=0, microsecond=0)
+    return "Resets " + when.astimezone().strftime("%a %-I:%M %p")
 
 
 def _parse_claude_text(text):

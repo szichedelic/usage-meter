@@ -1,6 +1,37 @@
 import unittest
 
-from claude_scraper import _parse_claude_text
+from claude_scraper import _parse_claude_text, _parse_usage_json
+
+
+class ParseUsageJsonTests(unittest.TestCase):
+    def test_includes_model_scoped_weekly_limit(self):
+        usage = {"limits": [
+            {"kind": "session", "percent": 4, "resets_at": None, "scope": None},
+            {"kind": "weekly_all", "percent": 59, "resets_at": None, "scope": None},
+            {"kind": "weekly_scoped", "percent": 60, "resets_at": None,
+             "scope": {"model": {"id": None, "display_name": "Fable"}, "surface": None}},
+        ]}
+
+        self.assertEqual(
+            _parse_usage_json(usage),
+            [
+                {"label": "Session", "percent_used": 4, "reset_time": ""},
+                {"label": "Weekly", "percent_used": 59, "reset_time": ""},
+                {"label": "Fable", "percent_used": 60, "reset_time": ""},
+            ],
+        )
+
+    def test_rounds_reset_time_to_the_minute(self):
+        usage = {"limits": [{"kind": "session", "percent": 4,
+                             "resets_at": "2026-10-21T07:59:59.568677+00:00"}]}
+
+        reset = _parse_usage_json(usage)[0]["reset_time"]
+
+        self.assertTrue(reset.startswith("Resets "))
+        self.assertTrue(reset.endswith(":00 AM") or reset.endswith(":00 PM"))
+
+    def test_missing_usage_returns_no_metrics(self):
+        self.assertEqual(_parse_usage_json(None), [])
 
 
 class ParseClaudeTextTests(unittest.TestCase):

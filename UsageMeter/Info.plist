@@ -22,5 +22,7 @@
 	<string>1</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>UsageMeterScraperPath</key>
+	<string>$(SRCROOT)/../scraper/scraper.py</string>
 </dict>
 </plist>

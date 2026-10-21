@@ -22,6 +22,7 @@ targets:
         LSUIElement: true
         CFBundleDisplayName: UsageMeter
         CFBundleName: UsageMeter
+        UsageMeterScraperPath: $(SRCROOT)/../scraper/scraper.py
   UsageMeterTests:
     type: bundle.unit-test
     platform: macOS

@@ -1,7 +1,9 @@
 import Foundation
 
 enum ScraperBridge {
-    private static let projectDir = "\(NSHomeDirectory())/code/github.com/usage-meter"
+    // Set at build time to the scraper in the source checkout.
+    private static let sourceScraperPath = (Bundle.main.object(forInfoDictionaryKey: "UsageMeterScraperPath") as? String)
+        .map { ($0 as NSString).standardizingPath }
 
     private static var scraperPath: String {
         let bundlePath = Bundle.main.bundlePath
@@ -10,9 +12,9 @@ enum ScraperBridge {
             "\(appDir)/scraper/scraper.py",
             "\(appDir)/../scraper/scraper.py",
             "\(FileManager.default.currentDirectoryPath)/scraper/scraper.py",
-            "\(projectDir)/scraper/scraper.py"
-        ]
-        return candidates.first { FileManager.default.fileExists(atPath: $0) } ?? "\(projectDir)/scraper/scraper.py"
+            sourceScraperPath
+        ].compactMap { $0 }
+        return candidates.first { FileManager.default.fileExists(atPath: $0) } ?? candidates.last!
     }
 
     private static var pythonPath: String {

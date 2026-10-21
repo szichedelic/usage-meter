@@ -8,6 +8,14 @@ class UsageStore: ObservableObject {
         ServiceUsage(name: "Codex", metrics: [], lastUpdated: nil, status: .unavailable)
     ]
 
+    /// Highest usage across services with fresh data, or nil when none have any.
+    var highestUsage: Double? {
+        services
+            .filter { $0.status == .ok && !$0.metrics.isEmpty }
+            .map(\.worstUsage)
+            .max()
+    }
+
     func updateService(index: Int, metrics: [UsageMetric], status: ServiceStatus) {
         guard index >= 0 && index < services.count else { return }
         services[index] = ServiceUsage(

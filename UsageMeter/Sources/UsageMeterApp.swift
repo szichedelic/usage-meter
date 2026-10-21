@@ -18,12 +18,14 @@ struct UsageMeterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("UM", systemImage: "gauge.with.dots.needle.50percent") {
+        MenuBarExtra {
             DropdownView(
                 store: appDelegate.store,
                 onRefresh: { appDelegate.poller?.poll() },
                 onQuit: { NSApplication.shared.terminate(nil) }
             )
+        } label: {
+            MenuBarIcon(store: appDelegate.store)
         }
         .menuBarExtraStyle(.window)
 

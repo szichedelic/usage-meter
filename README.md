@@ -28,13 +28,15 @@ The scraper sends no data to other services.
 
 ## Setup
 
-1. Clone the repo to `~/code/github.com/usage-meter`. When you run the app
-   from Xcode, the app looks for the scraper at this path.
+1. Clone the repo:
 
    ```sh
-   git clone https://github.com/szichedelic/usage-meter.git ~/code/github.com/usage-meter
-   cd ~/code/github.com/usage-meter
+   git clone https://github.com/szichedelic/usage-meter.git
+   cd usage-meter
    ```
+
+   The build saves the path of the scraper into the app. If you move the
+   repo, build the app again.
 
 2. Install the scraper. This makes a virtual environment at `~/.usage-meter/venv`:
 
